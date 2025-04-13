@@ -1,1 +1,57 @@
+# Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environment
+venv/
+env/
+*.env
+
+# Log files
+*.log
+
+# Pytest cache
+.cache/
+*.cover
+*.hypothesis/
+
+# Distribution/packaging
+dist/
+build/
+*.egg-info/
+
+# IDE files
+.vscode/
+.idea/
+
+# Python-related system files
+*.sqlite3
+*.db
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment-specific files
 .env
+*.env
+
+# Configuration for operating systems
+# .DS_Store    # macOS system files
+Thumbs.db    # Windows system files
+
+# Generated test reports
+nosetests.xml
+coverage.xml
+*.cover
+*.hypothesis/
+
+# Sphinx documentation
+_docs/
+build/
+
+# Flake8 configuration
+.flake8
+
+# Rich log files (if you choose not to track these)
+*.log
