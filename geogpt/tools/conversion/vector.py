@@ -5,6 +5,8 @@ from ...utils.registry import register_function
 from ...logger import GeoGPTLogger
 import zipfile
 import os
+import pandas as pd
+import csv
 logger = GeoGPTLogger.get_logger(__name__)
 
 
@@ -144,6 +146,75 @@ class VectorConv:
             input_ext='.gpkg', output_ext='.geojson',
             output_driver='GeoJSON'
         )
+
+    @register_function(name="csv_to_gpkg", description="Convert CSV with geometry (x, y[, z]) to GeoPackage", inputs=[], outputs=[], tags=[])
+    def csv_to_gpkg(
+        self,
+        input_file: str,
+        x_col: str = "x",
+        y_col: str = "y",
+        crs: str = "EPSG:4326",
+        z_col: Optional[str] = None,
+        output_file: Optional[str] = None,
+    ) -> str:
+        input_path = self._resolve_path(input_file)
+        if input_path.suffix.lower() != '.csv':
+            raise ValueError(f"Expected a .csv file for this conversion")
+
+        output_path = Path(
+            output_file) if output_file else input_path.with_suffix('.gpkg')
+
+        logger.info(
+            f"Converting CSV to GeoPackage: {input_path} → {output_path}")
+
+        # Read CSV and create GeoDataFrame
+        df = pd.read_csv(input_path)
+
+        if x_col not in df.columns or y_col not in df.columns:
+            raise ValueError(
+                f"CSV must contain '{x_col}' and '{y_col}' columns.")
+
+        # Create geometry
+        gdf = gpd.GeoDataFrame(
+            df,
+            geometry=gpd.points_from_xy(df[x_col], df[y_col]),
+            crs=crs
+        )
+        # If z_col is provided and exists, just retain it in the attributes
+        if z_col and z_col not in df.columns:
+            raise ValueError(f"'{z_col}' column not found in the CSV.")
+        gdf.to_file(output_path, driver='GPKG')
+        return str(output_path.resolve())
+
+    @register_function(name="gpkg_to_csv", description="Convert GeoPackage to CSV", inputs=[], outputs=[], tags=[])
+    def gpkg_to_csv(self, input_file: str, output_file: Optional[str] = None) -> str:
+        input_path = self._resolve_path(input_file)
+
+        if input_path.suffix.lower() != '.gpkg':
+            raise ValueError(f"Expected a .gpkg file for this conversion")
+
+        output_path = Path(
+            output_file) if output_file else input_path.with_suffix('.csv')
+
+        logger.info(
+            f"Converting GeoPackage to CSV: {input_path} → {output_path}")
+
+        gdf = gpd.read_file(input_path)
+
+        gdf.reset_index(drop=True, inplace=True)
+        gdf['Id'] = gdf.index
+
+        # Convert geometry to WKT string
+        gdf['geometry'] = gdf.geometry.apply(
+            lambda geom: geom.wkt if geom else None)
+        for col in gdf.columns:
+            gdf[col] = gdf[col].fillna('null')  # Replaces NaN/None
+            gdf[col] = gdf[col].replace(r'^\s*$', 'null', regex=True)
+
+        # Export with proper quoting to handle commas and large strings
+        gdf.to_csv(output_path, index=False, quoting=csv.QUOTE_ALL)
+
+        return str(output_path.resolve())
 
     # @register_function(name="dxf_to_shp")
     # @register_function(name="gpkg_to_shp")
