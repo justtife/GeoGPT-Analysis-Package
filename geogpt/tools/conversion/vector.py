@@ -83,13 +83,40 @@ class VectorConv:
         return self._convert_vector_file(
             input_file, output_file,
             input_ext='.gpkg', output_ext='.kml',
-            output_driver='LIBKML'
+            output_driver='KML'
         )
 
     @register_function(name="shp_to_gpkg", description="", inputs=[], outputs=[], tags=[])
     def shp_to_gpkg(self, input_file: str, output_file: Optional[str] = None) -> str:
+        input_path = self._resolve_path(input_file)
+        # If directory was provided, find the .shp file
+        if input_path.is_dir():
+            shp_files = list(input_path.glob('*.shp'))
+            if not shp_files:
+                raise FileNotFoundError(
+                    f"No .shp file found in directory: {input_path}")
+            input_path = shp_files[0]
+
+        # Verify this is a .shp file
+        if input_path.suffix.lower() != '.shp':
+            raise ValueError(f"Expected a .shp file, got: {input_path.suffix}")
+        # Check for required companion files
+        required_extensions = ['.shx', '.dbf', '.prj']
+        missing_files = []
+        for ext in required_extensions:
+            companion_file = input_path.with_suffix(ext)
+            if not companion_file.exists():
+                missing_files.append(companion_file.name)
+
+        if missing_files:
+            raise FileNotFoundError(
+                f"Shapefile components missing: {', '.join(missing_files)}\n"
+                f"Required files: .shp, .shx, .dbf, .prj"
+            )
+
+        # Proceed with conversion
         return self._convert_vector_file(
-            input_file, output_file,
+            str(input_path), output_file,
             input_ext='.shp', output_ext='.gpkg',
             output_driver='GPKG'
         )
